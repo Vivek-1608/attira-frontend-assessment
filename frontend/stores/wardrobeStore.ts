@@ -62,23 +62,45 @@ export const useWardrobeStore = create<WardrobeState>((set, get) => ({
     }
   },
 
+// Without error handling, failures would be silent,
+// leaving the UI inconsistent and users without feedback.
+
   addItem: async (req) => {
-    set({ error: null });
-    const item = await wardrobeAPI.addItem(req);
-    set((state) => ({
-      items: sortItems([item, ...state.items], state.sortMode),
-    }));
-    return item;
+    set({ isLoading: true, error: null });
+    try {
+      const item = await wardrobeAPI.addItem(req);
+      set((state) => ({
+        items: sortItems([item, ...state.items], state.sortMode),
+        isLoading: false,
+      }));
+      return item;
+    } catch (e: unknown) {
+      set({
+        isLoading: false,
+        error: friendlyError(e, "Couldn't add item. Please try again."),
+      });
+      throw e;
+    }
   },
 
   deleteItem: async (id) => {
-    set({ error: null });
-    await wardrobeAPI.deleteItem(id);
-    set((state) => ({ items: sortItems(
-      state.items.filter((i) => i.id !== id),
-      state.sortMode
-      ),
-    }));
+    set({ isLoading: true, error: null });
+    try {
+      await wardrobeAPI.deleteItem(id);
+      set((state) => ({
+        items: sortItems(
+          state.items.filter((i) => i.id !== id),
+          state.sortMode
+        ),
+        isLoading: false,
+      }));
+    } catch (e: unknown) {
+      set({
+        isLoading: false,
+        error: friendlyError(e, "Couldn't delete item. Please try again."),
+      });
+      throw e;
+    }
   },
 
   setCategory: (category) => {
