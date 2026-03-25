@@ -9,6 +9,7 @@ interface WardrobeState {
   selectedCategory: string;
   isLoading: boolean;
   error: string | null;
+  sortMode: 'newest' | 'oldest' | 'name';
 
   fetchItems: (category?: string) => Promise<void>;
   fetchCategories: () => Promise<void>;
@@ -16,7 +17,22 @@ interface WardrobeState {
   deleteItem: (id: string) => Promise<void>;
   setCategory: (category: string) => void;
   clearError: () => void;
+  setSortMode: (mode: 'newest' | 'oldest' | 'name') => void;
 }
+
+const sortItems = (items: ClothingItem[], mode: 'newest' | 'oldest' | 'name') => {
+  return [...items].sort((a, b) => {
+    if (mode === 'name') {
+      return a.name.localeCompare(b.name);
+    }
+
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+
+    if (mode === 'newest') return dateB - dateA;
+    return dateA - dateB;
+  });
+};
 
 export const useWardrobeStore = create<WardrobeState>((set, get) => ({
   items: [],
@@ -24,12 +40,14 @@ export const useWardrobeStore = create<WardrobeState>((set, get) => ({
   selectedCategory: '',
   isLoading: false,
   error: null,
+  sortMode: 'newest',
 
   fetchItems: async (category) => {
     set({ isLoading: true, error: null });
     try {
       const items = await wardrobeAPI.listItems(category || get().selectedCategory || undefined);
-      set({ items, isLoading: false });
+      const sortedItems = sortItems(items, get().sortMode);
+      set({ items: sortedItems, isLoading: false });
     } catch (e: unknown) {
       set({ isLoading: false, error: friendlyError(e, 'Couldn\'t load your wardrobe. Please try again.') });
     }
@@ -47,14 +65,20 @@ export const useWardrobeStore = create<WardrobeState>((set, get) => ({
   addItem: async (req) => {
     set({ error: null });
     const item = await wardrobeAPI.addItem(req);
-    set((state) => ({ items: [item, ...state.items] }));
+    set((state) => ({
+      items: sortItems([item, ...state.items], state.sortMode),
+    }));
     return item;
   },
 
   deleteItem: async (id) => {
     set({ error: null });
     await wardrobeAPI.deleteItem(id);
-    set((state) => ({ items: state.items.filter((i) => i.id !== id) }));
+    set((state) => ({ items: sortItems(
+      state.items.filter((i) => i.id !== id),
+      state.sortMode
+      ),
+    }));
   },
 
   setCategory: (category) => {
@@ -62,4 +86,11 @@ export const useWardrobeStore = create<WardrobeState>((set, get) => ({
     get().fetchItems(category);
   },
   clearError: () => set({ error: null }),
+
+  setSortMode: (mode) => {
+    set((state) => ({
+      sortMode: mode,
+      items: sortItems(state.items, mode),
+    }));
+  },
 }));
