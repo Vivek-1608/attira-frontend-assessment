@@ -18,8 +18,9 @@ export interface ClothingItem {
   color: string;
   image_url: string;
   source_type: SourceType;
-  source_url: string;
-  popular_item_id: string;
+  source_url?: string;
+  popular_item_id?: string;
+  price?: string;
   created_at: string;
   updated_at: string;
 }
